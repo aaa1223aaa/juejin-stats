@@ -1,0 +1,45 @@
+name: Update Juejin stats daily
+
+on:
+  schedule:
+    # 每天北京时间 08:00 运行；UTC 时间需减去 8 小时
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # 允许手动触发
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run crawler
+        env:
+          JUEJIN_USER_URL: ${{ secrets.JUEJIN_USER_URL || '' }}
+        run: |
+          python crawler/fetch.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add data/history.json
+          # 如果没有文件变化，则跳过提交
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: 更新掘金统计数据"
+            git push
+          fi
